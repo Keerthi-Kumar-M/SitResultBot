@@ -19,7 +19,7 @@ from telegram.ext import (
     filters,
 )
 
-BOT_TOKEN = "8138260389:AAF9VGSAmYS536YTOyMfHgdKpEyMiKcNXmI"
+BOT_TOKEN = "8048623528:AAGPn_eB2i8utMdV_ak8YkQZz8MhmOgTJ1Y"
 
 # Logging
 logging.basicConfig(level=logging.INFO)
