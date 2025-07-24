@@ -22,8 +22,8 @@ def launch_browser():
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.binary_location = "/usr/bin/google-chrome"
+    chromedriver_path = "/usr/local/bin/chromedriver"
 
-    chromedriver_path = shutil.which("chromedriver")
     if chromedriver_path is None:
         raise RuntimeError("Chromedriver not found in PATH")
     service = Service(chromedriver_path)
