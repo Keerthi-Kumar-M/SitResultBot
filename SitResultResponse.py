@@ -38,6 +38,9 @@ def launch_browser():
 
 
 def fetch_result(usn: str, dob: str) -> str:
+    import shutil
+    print("✅ chromedriver found at:", shutil.which("chromedriver"))
+
     try:
         day, month, year = dob.split("-")
         driver = launch_browser()
