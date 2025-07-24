@@ -25,13 +25,17 @@ def launch_browser():
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.binary_location = "/usr/bin/google-chrome"
 
-    chromedriver_path = "/usr/local/bin/chromedriver"
-    if not os.path.isfile(chromedriver_path):
-        raise FileNotFoundError(f"❌ Chromedriver not found at {chromedriver_path}")
+    # Find chromedriver dynamically
+    from shutil import which
+    chromedriver_path = which("chromedriver")
 
+    if not chromedriver_path or not os.path.exists(chromedriver_path):
+        raise FileNotFoundError(f"❌ Chromedriver not found at {chromedriver_path or 'UNKNOWN'}")
+
+    logger.info(f"Launching Chrome with binary at {chrome_options.binary_location} and driver at {chromedriver_path}")
     service = Service(chromedriver_path)
-    logger.info(f"✅ Launching Chrome with driver at {chromedriver_path}")
     return webdriver.Chrome(service=service, options=chrome_options)
+
 
 def fetch_result(usn: str, dob: str) -> str:
     try:
