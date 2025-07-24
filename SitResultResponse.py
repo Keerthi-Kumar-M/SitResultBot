@@ -1,6 +1,7 @@
 import os
 import logging
 import traceback
+import subprocess
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -14,10 +15,24 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Con
 # Your Telegram bot token
 BOT_TOKEN = "8048623528:AAGPn_eB2i8utMdV_ak8YkQZz8MhmOgTJ1Y"
 
-# Set up logging
+
+# === Setup logging ===
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+# === Download and install chromedriver ===
+def setup_chromedriver():
+    url = "https://storage.googleapis.com/chrome-for-testing-public/124.0.6367.91/linux64/chromedriver-linux64.zip"
+    logger.info("⬇️ Downloading Chromedriver...")
+    subprocess.run(["wget", url, "-O", "chromedriver.zip"], check=True)
+    subprocess.run(["unzip", "-o", "chromedriver.zip"], check=True)
+    subprocess.run(["mv", "chromedriver-linux64/chromedriver", "/usr/local/bin/chromedriver"], check=True)
+    subprocess.run(["chmod", "+x", "/usr/local/bin/chromedriver"], check=True)
+    logger.info("✅ Chromedriver setup complete.")
+
+
+# === Launch Chrome ===
 def launch_browser():
     chrome_options = Options()
     chrome_options.add_argument("--headless=new")
@@ -25,18 +40,21 @@ def launch_browser():
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.binary_location = "/usr/bin/google-chrome"
 
-    # ✅ Explicit chromedriver path
     chromedriver_path = "/usr/local/bin/chromedriver"
-
     if not os.path.exists(chromedriver_path):
         raise FileNotFoundError(f"❌ Chromedriver not found at {chromedriver_path}")
+    
+    os.chmod(chromedriver_path, 0o755)
 
-    logger.info(f"Launching Chrome with binary at {chrome_options.binary_location} and driver at {chromedriver_path}")
     service = Service(chromedriver_path)
     return webdriver.Chrome(service=service, options=chrome_options)
 
+
+# === Result Fetcher ===
 def fetch_result(usn: str, dob: str) -> str:
     try:
+        setup_chromedriver()
+
         day, month, year = dob.split("-")
         driver = launch_browser()
         driver.get("https://sims.sit.ac.in/parents/")
@@ -46,10 +64,8 @@ def fetch_result(usn: str, dob: str) -> str:
         Select(driver.find_element(By.ID, "dd")).select_by_value(day.zfill(2) + " ")
         Select(driver.find_element(By.ID, "mm")).select_by_value(month.zfill(2))
         Select(driver.find_element(By.ID, "yyyy")).select_by_value(year)
-
         driver.find_element(By.XPATH, "//input[@type='submit']").click()
 
-        # Wait for either error or result
         WebDriverWait(driver, 10).until(
             lambda d: ("Invalid" in d.page_source or "incorrect" in d.page_source.lower()) or
                       EC.element_to_be_clickable((By.XPATH, "//a[contains(text(), 'Exam History')]"))(d)
@@ -59,7 +75,6 @@ def fetch_result(usn: str, dob: str) -> str:
             driver.quit()
             return "❌ Invalid USN or DOB. Please try again."
 
-        # Proceed to Exam History
         WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.XPATH, "//a[contains(text(), 'Exam History')]"))
         ).click()
@@ -101,7 +116,8 @@ def fetch_result(usn: str, dob: str) -> str:
         logger.error("❌ Exception in fetch_result", exc_info=True)
         return f"❌ An error occurred while fetching result:\n{traceback.format_exc()}"
 
-# Telegram bot handlers
+
+# === Telegram Bot Handlers ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 Welcome to *SIT Result Bot*!\n\nSend your *USN DOB* like:\n\n`1SI22CS082 07-09-2004`",
@@ -124,12 +140,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="Markdown"
         )
 
+
+# === Bot Main ===
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     logger.info("🤖 SIT Result Bot is now running...")
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()
