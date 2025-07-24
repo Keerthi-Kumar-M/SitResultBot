@@ -14,7 +14,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-BOT_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"  # Replace this with your actual bot token
+BOT_TOKEN = "8048623528:AAGPn_eB2i8utMdV_ak8YkQZz8MhmOgTJ1Y"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
