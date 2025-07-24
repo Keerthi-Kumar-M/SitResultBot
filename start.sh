@@ -1,28 +1,26 @@
 #!/bin/bash
 set -e
 
-# Update & install required packages
+# Install dependencies
 apt-get update -y
-apt-get install -y wget unzip curl gnupg apt-transport-https software-properties-common
+apt-get install -y wget unzip curl gnupg
 
-# Install Google Chrome
+# Install Chrome
 wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
 apt-get install -y ./google-chrome-stable_current_amd64.deb
 
-# Extract Chrome version (major.minor.build)
+# Get Chrome version
 CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+')
+echo "Detected Chrome version: $CHROME_VERSION"
 
-# Download and unzip matching ChromeDriver
-wget "https://storage.googleapis.com/chrome-for-testing-public/$CHROME_VERSION/linux64/chromedriver-linux64.zip"
-unzip chromedriver-linux64.zip
+# Download matching chromedriver from chrome-for-testing
+wget "https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${CHROME_VERSION}/linux64/chromedriver-linux64.zip" -O chromedriver.zip
+unzip chromedriver.zip
 
-# Move ChromeDriver to path and set permissions
+# Move Chromedriver to correct path
+chmod +x chromedriver-linux64/chromedriver
 mv chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
-chmod +x /usr/local/bin/chromedriver
 
 # Clean up
-rm -f google-chrome-stable_current_amd64.deb chromedriver-linux64.zip
+rm -f google-chrome-stable_current_amd64.deb chromedriver.zip
 rm -rf chromedriver-linux64
-
-# Start the Python bot
-python3 SitResultResponse.py
