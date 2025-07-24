@@ -20,7 +20,7 @@ from telegram.ext import (
 )
 
 # ✅ Load BOT TOKEN securely from env vars
-BOT_TOKEN = os.getenv("BOT_TOKEN")  # Set this in Railway
+BOT_TOKEN = os.getenv("8048623528:AAGPn_eB2i8utMdV_ak8YkQZz8MhmOgTJ1Y")  # Set this in Railway
 
 # 📝 Setup logging
 logging.basicConfig(level=logging.INFO)
