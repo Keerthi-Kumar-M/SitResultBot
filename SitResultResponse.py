@@ -2,6 +2,7 @@ import os
 import logging
 import traceback
 import time
+import json
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -29,7 +30,7 @@ def create_chrome_driver():
     try:
         chrome_options = Options()
         
-        # Essential headless options
+        # Essential headless options for Railway/Docker environment
         chrome_options.add_argument("--headless=new")
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
@@ -41,7 +42,7 @@ def create_chrome_driver():
         chrome_options.add_argument("--disable-images")
         chrome_options.add_argument("--disable-javascript")
         chrome_options.add_argument("--window-size=1920,1080")
-        chrome_options.add_argument("--user-agent=Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36")
+        chrome_options.add_argument("--user-agent=Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         
         # Memory and performance optimizations
         chrome_options.add_argument("--memory-pressure-off")
@@ -49,29 +50,58 @@ def create_chrome_driver():
         chrome_options.add_argument("--disable-background-timer-throttling")
         chrome_options.add_argument("--disable-renderer-backgrounding")
         chrome_options.add_argument("--disable-backgrounding-occluded-windows")
+        chrome_options.add_argument("--disable-ipc-flooding-protection")
+        chrome_options.add_argument("--disable-hang-monitor")
+        chrome_options.add_argument("--disable-client-side-phishing-detection")
+        chrome_options.add_argument("--disable-popup-blocking")
+        chrome_options.add_argument("--disable-prompt-on-repost")
+        chrome_options.add_argument("--disable-sync")
+        chrome_options.add_argument("--disable-translate")
+        chrome_options.add_argument("--disable-logging")
+        chrome_options.add_argument("--disable-permissions-api")
+        chrome_options.add_argument("--disable-notifications")
+        chrome_options.add_argument("--disable-default-apps")
+        
+        # Additional stability options
+        chrome_options.add_argument("--no-first-run")
+        chrome_options.add_argument("--no-default-browser-check")
+        chrome_options.add_argument("--disable-infobars")
+        chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        chrome_options.add_experimental_option('useAutomationExtension', False)
         
         # Set binary location
         chrome_options.binary_location = "/usr/bin/google-chrome"
         
-        # Create service
+        # Create service with explicit path
         service = Service("/usr/local/bin/chromedriver")
         
         logger.info("🚀 Creating Chrome WebDriver...")
         driver = webdriver.Chrome(service=service, options=chrome_options)
-        driver.set_page_load_timeout(30)
-        driver.implicitly_wait(10)
+        
+        # Set timeouts
+        driver.set_page_load_timeout(45)
+        driver.implicitly_wait(15)
+        
+        # Execute script to remove webdriver property
+        driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
         
         logger.info("✅ Chrome WebDriver created successfully")
         return driver
         
     except Exception as e:
         logger.error(f"❌ Failed to create Chrome driver: {str(e)}")
+        logger.error(traceback.format_exc())
         raise
 
 
 def validate_inputs(usn: str, dob: str) -> tuple:
     """Validate and parse USN and DOB inputs"""
     try:
+        # Clean inputs
+        usn = usn.strip().upper()
+        dob = dob.strip()
+        
         # Validate USN format (basic check)
         if not usn or len(usn) < 8:
             raise ValueError("USN must be at least 8 characters long")
@@ -90,7 +120,7 @@ def validate_inputs(usn: str, dob: str) -> tuple:
         if not (1900 <= int(year) <= 2030):
             raise ValueError("Year must be between 1900 and 2030")
         
-        return day.zfill(2), month.zfill(2), year
+        return usn, day.zfill(2), month.zfill(2), year
         
     except ValueError as e:
         raise ValueError(f"Invalid input format: {str(e)}")
@@ -104,60 +134,94 @@ def fetch_sit_result(usn: str, dob: str) -> str:
         logger.info(f"🔍 Fetching result for USN: {usn}")
         
         # Validate inputs
-        day, month, year = validate_inputs(usn, dob)
+        usn, day, month, year = validate_inputs(usn, dob)
         
         # Create driver
         driver = create_chrome_driver()
         
-        # Navigate to SIT portal
-        logger.info("🌐 Navigating to SIT portal...")
-        driver.get("https://sims.sit.ac.in/parents/")
+        # Navigate to SIT portal with retry
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"🌐 Navigating to SIT portal (attempt {attempt + 1}/{max_retries})...")
+                driver.get("https://sims.sit.ac.in/parents/")
+                break
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    raise
+                logger.warning(f"⚠️ Navigation attempt {attempt + 1} failed: {str(e)}")
+                time.sleep(2)
         
         # Wait for login form
         logger.info("⏳ Waiting for login form...")
-        WebDriverWait(driver, 15).until(
-            EC.presence_of_element_located((By.ID, "username"))
-        )
+        try:
+            username_field = WebDriverWait(driver, 20).until(
+                EC.presence_of_element_located((By.ID, "username"))
+            )
+        except TimeoutException:
+            return "⏰ SIT portal is not responding. Please try again later."
         
         # Fill login form
         logger.info("📝 Filling login form...")
-        driver.find_element(By.ID, "username").clear()
-        driver.find_element(By.ID, "username").send_keys(usn)
+        username_field.clear()
+        username_field.send_keys(usn)
         
-        # Select date of birth
-        Select(driver.find_element(By.ID, "dd")).select_by_value(day + " ")
-        Select(driver.find_element(By.ID, "mm")).select_by_value(month)
-        Select(driver.find_element(By.ID, "yyyy")).select_by_value(year)
+        # Select date of birth with error handling
+        try:
+            day_select = Select(driver.find_element(By.ID, "dd"))
+            month_select = Select(driver.find_element(By.ID, "mm"))
+            year_select = Select(driver.find_element(By.ID, "yyyy"))
+            
+            day_select.select_by_value(day + " ")
+            month_select.select_by_value(month)
+            year_select.select_by_value(year)
+        except Exception as e:
+            logger.error(f"❌ Error selecting date: {str(e)}")
+            return "❌ Error filling date fields. Please check your date format (DD-MM-YYYY)."
         
         # Submit form
         logger.info("🚀 Submitting login form...")
-        driver.find_element(By.XPATH, "//input[@type='submit']").click()
+        try:
+            submit_button = driver.find_element(By.XPATH, "//input[@type='submit']")
+            submit_button.click()
+        except Exception as e:
+            logger.error(f"❌ Error submitting form: {str(e)}")
+            return "❌ Error submitting login form. Please try again."
         
         # Wait for response and check for errors
         logger.info("⏳ Waiting for login response...")
-        time.sleep(3)
+        time.sleep(5)
         
         # Check for invalid credentials
         page_source = driver.page_source.lower()
-        if "invalid" in page_source or "incorrect" in page_source or "error" in page_source:
+        if any(keyword in page_source for keyword in ["invalid", "incorrect", "error", "wrong"]):
             return "❌ Invalid USN or Date of Birth. Please check your credentials and try again."
         
         # Look for exam history link
         try:
             logger.info("🔍 Looking for Exam History link...")
-            exam_history_link = WebDriverWait(driver, 15).until(
+            exam_history_link = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.XPATH, "//a[contains(text(), 'Exam History')]"))
             )
             exam_history_link.click()
             logger.info("✅ Clicked on Exam History")
         except TimeoutException:
-            return "❌ Could not find Exam History. Please check if you have any results available."
+            # Try alternative selectors
+            try:
+                exam_history_link = driver.find_element(By.PARTIAL_LINK_TEXT, "Exam")
+                exam_history_link.click()
+                logger.info("✅ Found alternative Exam link")
+            except:
+                return "❌ Could not find Exam History. Please check if you have any results available or try again later."
         
         # Wait for results to load
         logger.info("⏳ Waiting for results to load...")
-        WebDriverWait(driver, 15).until(
-            EC.presence_of_element_located((By.CLASS_NAME, "result-data"))
-        )
+        try:
+            WebDriverWait(driver, 25).until(
+                EC.presence_of_element_located((By.CLASS_NAME, "result-data"))
+            )
+        except TimeoutException:
+            return "⏰ Results are taking too long to load. Please try again."
         
         # Parse results
         logger.info("📊 Parsing results...")
@@ -314,8 +378,9 @@ async def handle_result_request(update: Update, context: ContextTypes.DEFAULT_TY
         # Send processing message
         processing_msg = await update.message.reply_text(
             "🔍 *Fetching your results...*\n\n"
-            "⏳ This may take 30-60 seconds\n"
-            "🌐 Connecting to SIT portal...",
+            "⏳ This may take 30-90 seconds\n"
+            "🌐 Connecting to SIT portal...\n"
+            "🚀 Please wait...",
             parse_mode="Markdown"
         )
         
