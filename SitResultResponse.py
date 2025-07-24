@@ -1,9 +1,7 @@
 import os
 import logging
 import traceback
-import requests
-import zipfile
-from io import BytesIO
+import shutil
 from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -14,30 +12,14 @@ from selenium.webdriver.support import expected_conditions as EC
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-BOT_TOKEN = "8048623528:AAGPn_eB2i8utMdV_ak8YkQZz8MhmOgTJ1Y"
+# ✅ Your Telegram Bot Token
+BOT_TOKEN = "8148134144:AAHJXMpnO-vjYNd6es23aPEYSUWHT_3uBOU"  # Replace with your real bot token
 
+# 📋 Logging setup
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-CHROMEDRIVER_PATH = "/usr/local/bin/chromedriver"
 
-
-# ✅ Download & install chromedriver in pure Python (Railway-safe)
-def setup_chromedriver():
-    if os.path.exists(CHROMEDRIVER_PATH):
-        return  # Already downloaded
-
-    logger.info("⬇️ Downloading chromedriver...")
-    url = "https://storage.googleapis.com/chrome-for-testing-public/124.0.6367.91/linux64/chromedriver-linux64.zip"
-    response = requests.get(url)
-    with zipfile.ZipFile(BytesIO(response.content)) as zip_ref:
-        zip_ref.extract("chromedriver-linux64/chromedriver")
-        os.rename("chromedriver-linux64/chromedriver", CHROMEDRIVER_PATH)
-        os.chmod(CHROMEDRIVER_PATH, 0o755)
-    logger.info("✅ Chromedriver setup complete")
-
-
-# ✅ Launch Chrome
 def launch_browser():
     chrome_options = Options()
     chrome_options.add_argument("--headless=new")
@@ -45,19 +27,20 @@ def launch_browser():
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.binary_location = "/usr/bin/google-chrome"
 
-    if not os.path.exists(CHROMEDRIVER_PATH):
-        raise FileNotFoundError(f"❌ Chromedriver not found at {CHROMEDRIVER_PATH}")
+    chromedriver_path = "/usr/local/bin/chromedriver"
+    if not os.path.exists(chromedriver_path):
+        raise FileNotFoundError(f"❌ Chromedriver not found at {chromedriver_path}")
 
-    service = Service(CHROMEDRIVER_PATH)
+    service = Service(chromedriver_path)
+    logger.info("✅ Launching browser with options...")
     return webdriver.Chrome(service=service, options=chrome_options)
 
 
-# ✅ Fetch Result
 def fetch_result(usn: str, dob: str) -> str:
-    try:
-        setup_chromedriver()
-        day, month, year = dob.split("-")
+    print("✅ Starting fetch_result...")
 
+    try:
+        day, month, year = dob.split("-")
         driver = launch_browser()
         driver.get("https://sims.sit.ac.in/parents/")
 
@@ -119,12 +102,13 @@ def fetch_result(usn: str, dob: str) -> str:
         return f"❌ An error occurred while fetching result:\n{traceback.format_exc()}"
 
 
-# ✅ Telegram handlers
+# 🤖 Telegram Bot Handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 Welcome to *SIT Result Bot*!\n\nSend your *USN DOB* like:\n\n`1SI22CS082 07-09-2004`",
         parse_mode="Markdown"
     )
+
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message.text.strip()
@@ -143,12 +127,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
-# ✅ Bot Main
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    logger.info("🤖 SIT Result Bot is now running...")
+    logger.info("🤖 SIT Result Bot is running...")
     app.run_polling()
 
 
