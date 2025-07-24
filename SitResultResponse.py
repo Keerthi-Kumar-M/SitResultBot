@@ -11,10 +11,10 @@ from selenium.webdriver.support import expected_conditions as EC
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-# Your Telegram bot token
+# Telegram Bot Token
 BOT_TOKEN = "8048623528:AAGPn_eB2i8utMdV_ak8YkQZz8MhmOgTJ1Y"
 
-# Set up logging
+# Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -25,10 +25,8 @@ def launch_browser():
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.binary_location = "/usr/bin/google-chrome"
 
-    # Find chromedriver dynamically
     from shutil import which
     chromedriver_path = which("chromedriver")
-
     if not chromedriver_path or not os.path.exists(chromedriver_path):
         raise FileNotFoundError(f"❌ Chromedriver not found at {chromedriver_path or 'UNKNOWN'}")
 
@@ -36,11 +34,11 @@ def launch_browser():
     service = Service(chromedriver_path)
     return webdriver.Chrome(service=service, options=chrome_options)
 
-
 def fetch_result(usn: str, dob: str) -> str:
     import shutil
     print("✅ chromedriver found at:", shutil.which("chromedriver"))
 
+    driver = None
     try:
         day, month, year = dob.split("-")
         driver = launch_browser()
@@ -51,10 +49,9 @@ def fetch_result(usn: str, dob: str) -> str:
         Select(driver.find_element(By.ID, "dd")).select_by_value(day.zfill(2) + " ")
         Select(driver.find_element(By.ID, "mm")).select_by_value(month.zfill(2))
         Select(driver.find_element(By.ID, "yyyy")).select_by_value(year)
-
         driver.find_element(By.XPATH, "//input[@type='submit']").click()
 
-        # Wait for either error or result
+        # Wait for either error or Exam History link
         WebDriverWait(driver, 10).until(
             lambda d: ("Invalid" in d.page_source or "incorrect" in d.page_source.lower()) or
                       EC.element_to_be_clickable((By.XPATH, "//a[contains(text(), 'Exam History')]"))(d)
@@ -64,7 +61,7 @@ def fetch_result(usn: str, dob: str) -> str:
             driver.quit()
             return "❌ Invalid USN or DOB. Please try again."
 
-        # Proceed to Exam History
+        # Navigate to Exam History
         WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.XPATH, "//a[contains(text(), 'Exam History')]"))
         ).click()
@@ -85,6 +82,7 @@ def fetch_result(usn: str, dob: str) -> str:
             caption = card.find("caption")
             if not caption:
                 continue
+
             exam_session = caption.text.strip().split("Credits")[0].strip()
             sgpa = cgpa = ""
             for span in caption.find_all("span"):
@@ -99,14 +97,12 @@ def fetch_result(usn: str, dob: str) -> str:
         return final_output.strip()
 
     except Exception:
-        try:
+        if driver:
             driver.quit()
-        except:
-            pass
         logger.error("❌ Exception in fetch_result", exc_info=True)
         return f"❌ An error occurred while fetching result:\n{traceback.format_exc()}"
 
-# Telegram bot handlers
+# Telegram bot command handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "👋 Welcome to *SIT Result Bot*!\n\nSend your *USN DOB* like:\n\n`1SI22CS082 07-09-2004`",
