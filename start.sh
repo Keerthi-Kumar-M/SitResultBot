@@ -25,8 +25,9 @@ else
     echo "Error: chromedriver binary not found!"
     exit 1
 fi
-
+export PATH=$PATH:/usr/local/bin
 chmod +x /usr/local/bin/chromedriver
+
 
 # Clean up
 rm -f google-chrome-stable_current_amd64.deb chromedriver-linux64.zip
