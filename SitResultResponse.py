@@ -19,15 +19,13 @@ from telegram.ext import (
     filters,
 )
 
-# ✅ Load BOT TOKEN securely from env vars
-BOT_TOKEN = os.getenv("8048623528:AAGPn_eB2i8utMdV_ak8YkQZz8MhmOgTJ1Y")  # Set this in Railway
+BOT_TOKEN = "8048623528:AAGPn_eB2i8utMdV_ak8YkQZz8MhmOgTJ1Y"
 
-# 📝 Setup logging
+# Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-# 🧠 Launch Headless Chrome
+# 🧠 Launch Chrome headless
 def launch_browser():
     chrome_options = Options()
     chrome_options.add_argument("--headless=new")
@@ -39,51 +37,46 @@ def launch_browser():
     service = Service(chromedriver_path)
     return webdriver.Chrome(service=service, options=chrome_options)
 
-
-# 🔍 Fetch Results from SIMS
+# 🧠 Fetch Result from SIMS Portal
 def fetch_result(usn: str, dob: str) -> str:
     try:
         day, month, year = dob.split("-")
         driver = launch_browser()
         driver.get("https://sims.sit.ac.in/parents/")
-        time.sleep(3)
+        time.sleep(2)
 
-        # Wait for username field
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.ID, "username"))
-        )
-
+        # Fill form
         driver.find_element(By.ID, "username").send_keys(usn)
         Select(driver.find_element(By.ID, "dd")).select_by_value(day.zfill(2) + " ")
         Select(driver.find_element(By.ID, "mm")).select_by_value(month.zfill(2))
         Select(driver.find_element(By.ID, "yyyy")).select_by_value(year)
         time.sleep(1)
 
-        # Submit
+        # Submit form
         driver.find_element(By.XPATH, "//input[@type='submit']").click()
         time.sleep(3)
 
-        # Invalid Login Check
+        # Check for invalid login
         if "Invalid" in driver.page_source or "incorrect" in driver.page_source.lower():
             driver.quit()
             return "❌ Invalid USN or DOB. Please try again."
 
-        # Click Exam History
+        # Wait for "Exam History" link then click
         WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.XPATH, "//a[contains(text(), 'Exam History')]"))
         ).click()
         time.sleep(3)
 
-        # Parse results
+        # Parse Results Page
         soup = BeautifulSoup(driver.page_source, "html.parser")
         driver.quit()
-
+        
         result_blocks = soup.find_all("div", class_="uk-card uk-card-body result-data")
         if not result_blocks:
             return "⚠️ No semester results found."
 
         final_output = ""
-        for card in result_blocks[:6]:  # Limit to 6 semesters
+        for card in result_blocks[:6]:
             caption = card.find("caption")
             if not caption:
                 continue
@@ -91,11 +84,11 @@ def fetch_result(usn: str, dob: str) -> str:
             exam_session = caption.text.strip().split("Credits")[0].strip()
             sgpa = cgpa = ""
             for span in caption.find_all("span"):
-                text = span.text.strip()
-                if "SGPA" in text:
-                    sgpa = text.split(":")[1].strip()
-                elif "CGPA" in text:
-                    cgpa = text.split(":")[1].strip()
+                val = span.text.strip()
+                if "SGPA" in val:
+                    sgpa = val.split(":")[1].strip()
+                elif "CGPA" in val:
+                    cgpa = val.split(":")[1].strip()
 
             final_output += f"📘 Exam Session: {exam_session}\n🧮 SGPA: {sgpa}\n🎓 CGPA: {cgpa}\n\n"
 
@@ -109,17 +102,14 @@ def fetch_result(usn: str, dob: str) -> str:
             pass
         return f"❌ An error occurred while fetching result:\n{traceback.format_exc()}"
 
-
-# ➕ /start command
+# /start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 *Welcome to SIT Result Bot!*\n\n"
-        "Send your *USN DOB* like:\n`1SI22CS082 07-09-2004`",
+        "👋 Welcome to *SIT Result Bot*!\n\nSend your *USN DOB* like:\n\n`1SI22CS082 07-09-2004`",
         parse_mode="Markdown"
     )
 
-
-# ⌨️ Message handler
+# Message handler
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message.text.strip()
     chat_id = update.message.chat_id
@@ -132,19 +122,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(result)
     except ValueError:
         await update.message.reply_text(
-            "⚠️ Invalid format. Use this format:\n`1SI22CS082 07-09-2004`",
+            "⚠️ Invalid format. Use:\n`1SI22CS082 07-09-2004`",
             parse_mode="Markdown"
         )
 
-
-# 🚀 Start the bot
+# 🟢 Run the bot
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     logger.info("🤖 SIT Result Bot is now running...")
     app.run_polling()
-
 
 if __name__ == "__main__":
     main()
