@@ -1,4 +1,4 @@
 python-telegram-bot==20.7
-selenium
-beautifulsoup4
-chromedriver-autoinstaller
+selenium==4.15.2
+beautifulsoup4==4.12.2
+requests==2.31.0
