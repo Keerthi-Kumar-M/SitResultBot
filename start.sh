@@ -10,15 +10,15 @@ BASE_URL="https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERS
 
 echo "✅ Downloading Chrome version ${CHROME_VERSION}..."
 wget "${BASE_URL}/chrome-linux64.zip" -O chrome.zip
-unzip chrome.zip
-mv chrome-linux64 /opt/chrome
-ln -s /opt/chrome/chrome /usr/bin/google-chrome
+unzip -o chrome.zip
+mv -f chrome-linux64 /opt/chrome
+ln -sf /opt/chrome/chrome /usr/bin/google-chrome
 
 echo "✅ Downloading Chromedriver version ${CHROME_VERSION}..."
 wget "${BASE_URL}/chromedriver-linux64.zip" -O chromedriver.zip
-unzip chromedriver.zip
+unzip -o chromedriver.zip
 chmod +x chromedriver-linux64/chromedriver
-mv chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
+mv -f chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
 
 echo "✅ Cleaning up..."
 rm -rf chrome.zip chromedriver.zip chrome-linux64 chromedriver-linux64
@@ -26,5 +26,5 @@ rm -rf chrome.zip chromedriver.zip chrome-linux64 chromedriver-linux64
 echo "✅ Verifying Chromedriver path..."
 ls -l /usr/local/bin/chromedriver || echo "❌ Chromedriver not found!"
 
-echo "🚀 Running Python bot..."
+echo "🚀 Starting Python bot..."
 python3 SitResultResponse.py
