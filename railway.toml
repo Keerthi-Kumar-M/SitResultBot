@@ -1,0 +1,5 @@
+[build]
+commands = ["./start.sh", "pip install -r requirements.txt"]
+
+[deploy]
+start = "python SitResultResponse.py"
