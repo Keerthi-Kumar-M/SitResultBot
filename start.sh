@@ -12,17 +12,17 @@ CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+')
 wget "https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/$CHROME_VERSION/linux64/chromedriver-linux64.zip"
 unzip chromedriver-linux64.zip
 
-# Move chromedriver binary, adjust if inside folder
+# Find and move chromedriver to /usr/local/bin, handling possible folder structure
 if [ -f ./chromedriver ]; then
     mv chromedriver /usr/local/bin/chromedriver
 elif [ -f ./chromedriver-linux64/chromedriver ]; then
     mv chromedriver-linux64/chromedriver /usr/local/bin/chromedriver
 else
-    echo "Chromedriver binary not found!"
+    echo "Error: chromedriver binary not found after unzip."
     exit 1
 fi
-chmod +x /usr/local/bin/chromedriver
 
-rm -f google-chrome-stable_current_amd64.deb chromedriver-linux64.zip
+chmod +x /usr/local/bin/chromedriver
+rm -rf google-chrome-stable_current_amd64.deb chromedriver-linux64.zip chromedriver-linux64
 
 python3 SitResultResponse.py
