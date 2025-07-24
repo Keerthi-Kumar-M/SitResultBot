@@ -25,3 +25,6 @@ rm -rf chrome.zip chromedriver.zip chrome-linux64 chromedriver-linux64
 
 echo "✅ Verifying Chromedriver path..."
 ls -l /usr/local/bin/chromedriver || echo "❌ Chromedriver not found!"
+echo "🚀 Running Python bot..."
+python3 SitResultResponse.py
+
